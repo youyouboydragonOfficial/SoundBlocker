@@ -30,6 +30,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
     private WindowManager.LayoutParams bubbleParams;
     private WindowManager.LayoutParams panelParams;
     private boolean isExpanded = false;
+    private OverlapAudioController overlapController;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -39,6 +40,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
     @Override
     public void onCreate() {
         super.onCreate();
+        overlapController = new OverlapAudioController(this);
         createNotificationChannel();
         startForeground(1001, createNotification());
 
@@ -71,13 +73,20 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
         return builder.setContentTitle("SoundBlocker 常駐中")
-                .setContentText("画面上のバブルからアプリ音声をブロックできます")
+                .setContentText("ゲームとYouTubeの音声重複をワンタップでブロック")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
     }
 
     private int dp(float val) {
         return (int) (val * getResources().getDisplayMetrics().density);
+    }
+
+    private GradientDrawable btnBg(int color, float radiusDp) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(color);
+        g.setCornerRadius(dp(radiusDp));
+        return g;
     }
 
     private void initBubbleView() {
@@ -155,7 +164,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(18));
-        bg.setColor(0xf0151828);
+        bg.setColor(0xf2151828);
         bg.setStroke(dp(1.5f), 0xff7c67fe);
         panel.setBackground(bg);
 
@@ -181,9 +190,74 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
 
         panel.addView(header, new LinearLayout.LayoutParams(-1, -2));
 
+        // Quick Mode Switch: Game vs YouTube (重なり解消スイッチ)
+        TextView modeTitle = new TextView(this);
+        modeTitle.setText("音声の重なりワンタップ解決:");
+        modeTitle.setTextColor(0xff9ca3af);
+        modeTitle.setTextSize(11);
+        modeTitle.setPadding(0, dp(10), 0, dp(6));
+        panel.addView(modeTitle);
+
+        LinearLayout modeRow = new LinearLayout(this);
+        modeRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView btnGameOnly = new TextView(this);
+        btnGameOnly.setText("🎬 YouTubeを消す\n(ゲーム音のみ)");
+        btnGameOnly.setTextColor(Color.WHITE);
+        btnGameOnly.setTextSize(11);
+        btnGameOnly.setGravity(Gravity.CENTER);
+        btnGameOnly.setBackground(btnBg(0xff2d2558, 8));
+        btnGameOnly.setPadding(dp(6), dp(8), dp(6), dp(8));
+        btnGameOnly.setOnClickListener(v -> {
+            overlapController.muteMediaOnly();
+            refreshPanelItems();
+        });
+        modeRow.addView(btnGameOnly, new LinearLayout.LayoutParams(0, -2, 1));
+
+        View space = new View(this);
+        modeRow.addView(space, new LinearLayout.LayoutParams(dp(6), -1));
+
+        TextView btnMediaOnly = new TextView(this);
+        btnMediaOnly.setText("🎮 ゲームを消す\n(YouTubeのみ)");
+        btnMediaOnly.setTextColor(Color.WHITE);
+        btnMediaOnly.setTextSize(11);
+        btnMediaOnly.setGravity(Gravity.CENTER);
+        btnMediaOnly.setBackground(btnBg(0xff551f38, 8));
+        btnMediaOnly.setPadding(dp(6), dp(8), dp(6), dp(8));
+        btnMediaOnly.setOnClickListener(v -> {
+            overlapController.muteGameOnly();
+            refreshPanelItems();
+        });
+        modeRow.addView(btnMediaOnly, new LinearLayout.LayoutParams(0, -2, 1));
+
+        panel.addView(modeRow, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView btnUnmuteAll = new TextView(this);
+        btnUnmuteAll.setText("🔄 両方の音を鳴らす (ブロック全解除)");
+        btnUnmuteAll.setTextColor(0xff10b981);
+        btnUnmuteAll.setTextSize(11);
+        btnUnmuteAll.setGravity(Gravity.CENTER);
+        btnUnmuteAll.setBackground(btnBg(0xff162822, 6));
+        btnUnmuteAll.setPadding(0, dp(6), 0, dp(6));
+        btnUnmuteAll.setOnClickListener(v -> {
+            overlapController.unmuteAll();
+            refreshPanelItems();
+        });
+        LinearLayout.LayoutParams unmuteLp = new LinearLayout.LayoutParams(-1, -2);
+        unmuteLp.topMargin = dp(6);
+        panel.addView(btnUnmuteAll, unmuteLp);
+
+        // Divider
+        View div = new View(this);
+        div.setBackgroundColor(0xff282c48);
+        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(-1, dp(1));
+        divLp.topMargin = dp(10);
+        divLp.bottomMargin = dp(4);
+        panel.addView(div, divLp);
+
+        // Media Sessions list
         panelItemsContainer = new LinearLayout(this);
         panelItemsContainer.setOrientation(LinearLayout.VERTICAL);
-        panelItemsContainer.setPadding(0, dp(10), 0, 0);
         panel.addView(panelItemsContainer, new LinearLayout.LayoutParams(-1, -2));
 
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -191,7 +265,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
                 : WindowManager.LayoutParams.TYPE_PHONE;
 
         panelParams = new WindowManager.LayoutParams(
-                dp(280),
+                dp(290),
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 layoutType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
@@ -234,11 +308,11 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
 
         if (sessions == null || sessions.isEmpty()) {
             TextView emptyText = new TextView(this);
-            emptyText.setText("現在再生中のメディアはありません\n(YouTubeや音楽アプリを再生すると表示されます)");
+            emptyText.setText("現在再生中のメディアセッションはありません");
             emptyText.setTextColor(0xff6b7280);
-            emptyText.setTextSize(12);
+            emptyText.setTextSize(11);
             emptyText.setGravity(Gravity.CENTER);
-            emptyText.setPadding(0, dp(14), 0, dp(14));
+            emptyText.setPadding(0, dp(10), 0, dp(6));
             panelItemsContainer.addView(emptyText, new LinearLayout.LayoutParams(-1, -2));
             return;
         }
@@ -247,7 +321,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(0, dp(6), 0, dp(6));
+            row.setPadding(0, dp(5), 0, dp(5));
 
             ImageView icon = new ImageView(this);
             if (info.appIcon != null) {
@@ -255,7 +329,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             } else {
                 icon.setImageResource(R.drawable.ic_launcher_foreground);
             }
-            row.addView(icon, new LinearLayout.LayoutParams(dp(32), dp(32)));
+            row.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
 
             LinearLayout infoBox = new LinearLayout(this);
             infoBox.setOrientation(LinearLayout.VERTICAL);
@@ -264,14 +338,14 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             TextView name = new TextView(this);
             name.setText(info.appName);
             name.setTextColor(Color.WHITE);
-            name.setTextSize(13);
+            name.setTextSize(12);
             name.setSingleLine(true);
             infoBox.addView(name);
 
             TextView track = new TextView(this);
             track.setText(info.title.isEmpty() ? (info.isPlaying ? "再生中" : "一時停止中") : info.title);
             track.setTextColor(0xff9ca3af);
-            track.setTextSize(11);
+            track.setTextSize(10);
             track.setSingleLine(true);
             infoBox.addView(track);
 
@@ -280,15 +354,11 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             TextView actionBtn = new TextView(this);
             boolean blocked = info.isBlocked;
             actionBtn.setText(blocked ? "解除" : "ブロック");
-            actionBtn.setTextSize(12);
+            actionBtn.setTextSize(11);
             actionBtn.setTextColor(Color.WHITE);
             actionBtn.setGravity(Gravity.CENTER);
-
-            GradientDrawable btnBg = new GradientDrawable();
-            btnBg.setCornerRadius(dp(8));
-            btnBg.setColor(blocked ? 0xff10b981 : 0xffff4d6d);
-            actionBtn.setBackground(btnBg);
-            actionBtn.setPadding(dp(10), dp(6), dp(10), dp(6));
+            actionBtn.setBackground(btnBg(blocked ? 0xff10b981 : 0xffff4d6d, 6));
+            actionBtn.setPadding(dp(8), dp(4), dp(8), dp(4));
 
             actionBtn.setOnClickListener(v -> {
                 if (service != null) {
