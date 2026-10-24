@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">SoundBlocker</string>
+    <string name="notification_listener_desc">再生中の音楽・動画などのオーディオセッションを検知し、音声をブロック・制御するために必要です。</string>
+</resources>
