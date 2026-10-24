@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
@@ -114,7 +115,7 @@ public class SoundBlockerNotificationService extends NotificationListenerService
             if (controllers != null) {
                 for (MediaController c : controllers) {
                     String pkg = c.getPackageName();
-                    if (pkg.equals(getPackageName())) continue; // 自分自身は除外
+                    if (pkg.equals(getPackageName())) continue;
 
                     String appName = pkg;
                     Drawable icon = null;
@@ -151,8 +152,60 @@ public class SoundBlockerNotificationService extends NotificationListenerService
         return result;
     }
 
-    public void blockApp(String packageName) {
+    /**
+     * 再生を一時停止（Pause）させずに、音量だけを0/ミュート（消音）する
+     */
+    public void muteAppSound(String packageName) {
         blockedPackages.add(packageName);
+        if (mediaSessionManager != null) {
+            try {
+                List<MediaController> controllers = mediaSessionManager.getActiveSessions(serviceComponent);
+                if (controllers != null) {
+                    for (MediaController c : controllers) {
+                        if (c.getPackageName().equals(packageName)) {
+                            // 再生を止めずに音量だけをミュート（0）にする
+                            try {
+                                c.adjustVolume(AudioManager.ADJUST_MUTE, 0);
+                            } catch (Exception ignored) {}
+                            try {
+                                c.setVolumeTo(0, 0);
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        notifySessionsChanged();
+    }
+
+    /**
+     * 音声の消音（ミュート）を解除する
+     */
+    public void unmuteAppSound(String packageName) {
+        blockedPackages.remove(packageName);
+        if (mediaSessionManager != null) {
+            try {
+                List<MediaController> controllers = mediaSessionManager.getActiveSessions(serviceComponent);
+                if (controllers != null) {
+                    for (MediaController c : controllers) {
+                        if (c.getPackageName().equals(packageName)) {
+                            try {
+                                c.adjustVolume(AudioManager.ADJUST_UNMUTE, 0);
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        notifySessionsChanged();
+    }
+
+    /**
+     * 再生そのものを一時停止（Pause）したい場合
+     */
+    public void pauseApp(String packageName) {
         if (mediaSessionManager != null) {
             try {
                 List<MediaController> controllers = mediaSessionManager.getActiveSessions(serviceComponent);
@@ -172,8 +225,10 @@ public class SoundBlockerNotificationService extends NotificationListenerService
         notifySessionsChanged();
     }
 
-    public void unblockApp(String packageName) {
-        blockedPackages.remove(packageName);
+    /**
+     * 一時停止中の再生を再開（Play）したい場合
+     */
+    public void resumeApp(String packageName) {
         if (mediaSessionManager != null) {
             try {
                 List<MediaController> controllers = mediaSessionManager.getActiveSessions(serviceComponent);
