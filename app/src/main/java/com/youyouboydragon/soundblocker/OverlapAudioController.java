@@ -2,6 +2,7 @@ package com.youyouboydragon.soundblocker;
 
 import android.content.Context;
 import java.util.List;
+import java.util.Set;
 
 public class OverlapAudioController {
 
@@ -24,42 +25,56 @@ public class OverlapAudioController {
     }
 
     /**
-     * ゲーム音だけを鳴らしたい場合（YouTube・音楽の音を完全ブロック）
+     * 任意の特定アプリの音声をブロック（消音）
      */
-    public void muteMediaOnly() {
+    public void blockApp(String packageName) {
+        // 1. メディアセッションを持つアプリならMediaControllerで一時停止
         SoundBlockerNotificationService service = SoundBlockerNotificationService.getInstance();
         if (service != null) {
-            List<AudioSessionInfo> sessions = service.getActiveAudioSessions();
-            for (AudioSessionInfo s : sessions) {
-                service.blockApp(s.packageName);
-            }
+            service.blockApp(packageName);
         }
-        // フォーカスを解放してゲームに音を出させる
-        focusManager.releaseFocus();
+        // 2. ゲームや一般アプリならAppOps/PLAY_AUDIOでブロック
+        appOpsBlocker.setAppAudioBlocked(packageName, true);
     }
 
     /**
-     * YouTube・音楽だけを聴きたい場合（ゲームの音をブロック）
+     * 任意の特定アプリの音声ブロックを解除（再生再開）
      */
-    public void muteGameOnly() {
-        // 1. YouTubeなどのメディアセッションのブロックを解除（再生再開）
+    public void unblockApp(String packageName) {
+        SoundBlockerNotificationService service = SoundBlockerNotificationService.getInstance();
+        if (service != null) {
+            service.unblockApp(packageName);
+        }
+        appOpsBlocker.setAppAudioBlocked(packageName, false);
+    }
+
+    /**
+     * 指定したアプリの音だけを残し、それ以外の現在鳴っている他アプリの音をすべてブロックする
+     */
+    public void keepOnlyApp(String keepPackageName) {
         SoundBlockerNotificationService service = SoundBlockerNotificationService.getInstance();
         if (service != null) {
             List<AudioSessionInfo> sessions = service.getActiveAudioSessions();
             for (AudioSessionInfo s : sessions) {
-                service.unblockApp(s.packageName);
+                if (!s.packageName.equals(keepPackageName)) {
+                    service.blockApp(s.packageName);
+                } else {
+                    service.unblockApp(s.packageName);
+                }
             }
         }
-        // 2. 登録済みゲームアプリの音声をブロック
+        // 登録済みアプリの処理
         for (String pkg : appOpsBlocker.getBlockedPackages()) {
-            appOpsBlocker.setAppAudioBlocked(pkg, true);
+            if (!pkg.equals(keepPackageName)) {
+                appOpsBlocker.setAppAudioBlocked(pkg, true);
+            }
         }
     }
 
     /**
-     * すべてのブロックを解除（ゲームもYouTubeも両方鳴らす）
+     * 全ての音声ブロックを解除（すべてのアプリの音を鳴らす）
      */
-    public void unmuteAll() {
+    public void unblockAll() {
         SoundBlockerNotificationService service = SoundBlockerNotificationService.getInstance();
         if (service != null) {
             List<AudioSessionInfo> sessions = service.getActiveAudioSessions();
@@ -71,5 +86,13 @@ public class OverlapAudioController {
             appOpsBlocker.setAppAudioBlocked(pkg, false);
         }
         focusManager.releaseFocus();
+    }
+
+    public boolean isAppBlocked(String packageName) {
+        SoundBlockerNotificationService service = SoundBlockerNotificationService.getInstance();
+        if (service != null && service.isAppBlocked(packageName)) {
+            return true;
+        }
+        return appOpsBlocker.isAppBlocked(packageName);
     }
 }

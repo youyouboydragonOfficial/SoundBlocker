@@ -23,7 +23,6 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
-import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -42,7 +41,6 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -51,6 +49,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
     private static final String GITHUB_REPO = "youyouboydragonOfficial/SoundBlocker";
     private static final String GITHUB_API_LATEST = "https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest";
 
+    private LinearLayout dynamicOverlapContainer;
     private LinearLayout activeSessionsContainer;
     private LinearLayout installedAppsContainer;
     private TextView permissionStatusText;
@@ -104,7 +103,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
         // 1. Header
         TextView tag = new TextView(this);
-        tag.setText("AUDIO SEPARATION & BLOCKER  v1.1.0");
+        tag.setText("MULTI-APP AUDIO SELECTOR  v1.2.0");
         tag.setTextSize(11);
         tag.setTextColor(0xff7c67fe);
         tag.setLetterSpacing(0.12f);
@@ -120,15 +119,15 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("ゲームとYouTubeなど、同じメディア音声で重なる音を個別に完全ブロック");
+        subtitle.setText("複数のアプリで音が重なった時に、消したいアプリを自分で自由に選択してブロック");
         subtitle.setTextSize(13);
         subtitle.setTextColor(0xff9ca3af);
         root.addView(subtitle, new LinearLayout.LayoutParams(-1, -2));
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(20)));
 
-        // 2. Game vs YouTube Overlap Solver Card (ゲームとYouTubeの音声重なり解決)
-        buildOverlapSolverCard(root);
+        // 2. Dynamic Audio Overlap Selector (動的重複選択カード)
+        buildDynamicOverlapCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
 
@@ -137,12 +136,12 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
 
-        // 4. Active Media Streams Card
+        // 4. Currently Playing Apps (個別消音リスト)
         buildActiveStreamsCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
 
-        // 5. Installed Games & Apps Audio Blocker (全アプリ・ゲーム個別ブロック)
+        // 5. Installed All Apps Audio Blocker (全アプリから選択ブロック)
         buildInstalledAppsCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
@@ -163,7 +162,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(24)));
 
         TextView footer = new TextView(this);
-        footer.setText("© 2026 youyouboydragonOfficial  •  SoundBlocker v1.1.0");
+        footer.setText("© 2026 youyouboydragonOfficial  •  SoundBlocker v1.2.0");
         footer.setTextSize(11);
         footer.setTextColor(0xff4b5563);
         footer.setGravity(Gravity.CENTER);
@@ -173,21 +172,21 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         setContentView(scrollView);
     }
 
-    private void buildOverlapSolverCard(LinearLayout root) {
+    private void buildDynamicOverlapCard(LinearLayout root) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(cardBg(0xff181730, 0xff7c67fe, 18));
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
 
         TextView badge = new TextView(this);
-        badge.setText("⚡ ゲーム ✕ YouTube 重なり対策");
+        badge.setText("⚡ 複数アプリの音声重複セレクター");
         badge.setTextColor(0xffa78bfa);
         badge.setTextSize(12);
         badge.setTypeface(null, Typeface.BOLD);
         card.addView(badge);
 
         TextView h = new TextView(this);
-        h.setText("同時に音が出ている時の優先切替");
+        h.setText("消したいアプリをその場で選択");
         h.setTextColor(Color.WHITE);
         h.setTextSize(17);
         h.setTypeface(null, Typeface.BOLD);
@@ -195,64 +194,103 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.addView(h);
 
         TextView desc = new TextView(this);
-        desc.setText("通話とは違い、ゲーム音とYouTube音は両方同じ「メディア音声」のため音が重なります。ワンタップでどちらか一方の音を完全にブロックできます。");
+        desc.setText("ゲーム、音楽、動画、SNS、ブラウザなど、同時に音が出ているアプリを自動検出し、どちらの音を消すかを自由に選択できます。");
         desc.setTextColor(0xffc4b5fd);
         desc.setTextSize(12);
         desc.setLineSpacing(dp(2), 1.15f);
-        desc.setPadding(0, 0, 0, dp(14));
+        desc.setPadding(0, 0, 0, dp(10));
         card.addView(desc);
 
-        // 2 buttons side by side
-        LinearLayout btnRow = new LinearLayout(this);
-        btnRow.setOrientation(LinearLayout.HORIZONTAL);
-
-        Button btnMuteMedia = new Button(this);
-        btnMuteMedia.setText("🎬 YouTubeを消す\n(ゲーム音だけ鳴らす)");
-        btnMuteMedia.setTextColor(Color.WHITE);
-        btnMuteMedia.setTextSize(12);
-        btnMuteMedia.setAllCaps(false);
-        btnMuteMedia.setBackground(cardBg(0xff4c1d95, 0xff7c67fe, 12));
-        btnMuteMedia.setOnClickListener(v -> {
-            overlapController.muteMediaOnly();
-            Toast.makeText(this, "YouTube等のメディア音声をブロックしました (ゲーム音のみ)", Toast.LENGTH_SHORT).show();
-            refreshSessionsList();
-        });
-        btnRow.addView(btnMuteMedia, new LinearLayout.LayoutParams(0, dp(54), 1));
-
-        View space = new View(this);
-        btnRow.addView(space, new LinearLayout.LayoutParams(dp(10), -1));
-
-        Button btnMuteGame = new Button(this);
-        btnMuteGame.setText("🎮 ゲームを消す\n(YouTubeだけ聴く)");
-        btnMuteGame.setTextColor(Color.WHITE);
-        btnMuteGame.setTextSize(12);
-        btnMuteGame.setAllCaps(false);
-        btnMuteGame.setBackground(cardBg(0xff831843, 0xfff43f5e, 12));
-        btnMuteGame.setOnClickListener(v -> {
-            overlapController.muteGameOnly();
-            Toast.makeText(this, "ゲームの音をブロックしました (YouTubeのみ)", Toast.LENGTH_SHORT).show();
-            refreshSessionsList();
-        });
-        btnRow.addView(btnMuteGame, new LinearLayout.LayoutParams(0, dp(54), 1));
-
-        card.addView(btnRow);
+        dynamicOverlapContainer = new LinearLayout(this);
+        dynamicOverlapContainer.setOrientation(LinearLayout.VERTICAL);
+        card.addView(dynamicOverlapContainer, new LinearLayout.LayoutParams(-1, -2));
 
         Button btnReset = new Button(this);
-        btnReset.setText("🔄 両方の音を鳴らす (ブロック全解除)");
+        btnReset.setText("🔄 すべての音を鳴らす (ブロック全解除)");
         btnReset.setTextColor(0xff10b981);
         btnReset.setTextSize(12);
         btnReset.setAllCaps(false);
         btnReset.setBackground(cardBg(0xff0f291e, 0xff10b981, 10));
         btnReset.setOnClickListener(v -> {
-            overlapController.unmuteAll();
+            overlapController.unblockAll();
             Toast.makeText(this, "すべてのブロックを解除しました", Toast.LENGTH_SHORT).show();
             refreshSessionsList();
         });
         LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(-1, dp(40));
-        resetLp.topMargin = dp(10);
+        resetLp.topMargin = dp(8);
         card.addView(btnReset, resetLp);
 
         root.addView(card, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void updateDynamicOverlapSelector(List<AudioSessionInfo> sessions) {
+        if (dynamicOverlapContainer == null) return;
+        dynamicOverlapContainer.removeAllViews();
+
+        if (sessions == null || sessions.size() < 2) {
+            TextView info = new TextView(this);
+            info.setText(sessions != null && sessions.size() == 1
+                    ? "現在1つのアプリのみ再生中です。別のアプリで音が鳴ると、ここで片方の消音選択が可能になります。"
+                    : "現在再生中のアプリはありません。複数のアプリで音が鳴ると、ここに選択ボタンが自動生成されます。");
+            info.setTextColor(0xff8b8da8);
+            info.setTextSize(11);
+            info.setPadding(0, dp(4), 0, dp(4));
+            dynamicOverlapContainer.addView(info);
+            return;
+        }
+
+        TextView prompt = new TextView(this);
+        prompt.setText("複数のアプリで音が鳴っています。消したいアプリをタップしてください:");
+        prompt.setTextColor(Color.WHITE);
+        prompt.setTextSize(13);
+        prompt.setTypeface(null, Typeface.BOLD);
+        prompt.setPadding(0, 0, 0, dp(8));
+        dynamicOverlapContainer.addView(prompt);
+
+        for (AudioSessionInfo s : sessions) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setBackground(cardBg(0xff271e42, 0xff533e85, 12));
+            row.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+            ImageView icon = new ImageView(this);
+            if (s.appIcon != null) {
+                icon.setImageDrawable(s.appIcon);
+            } else {
+                icon.setImageResource(R.drawable.ic_launcher_foreground);
+            }
+            row.addView(icon, new LinearLayout.LayoutParams(dp(32), dp(32)));
+
+            TextView name = new TextView(this);
+            name.setText(s.appName);
+            name.setTextColor(Color.WHITE);
+            name.setTextSize(13);
+            name.setTypeface(null, Typeface.BOLD);
+            name.setPadding(dp(10), 0, dp(10), 0);
+            row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+
+            Button muteBtn = new Button(this);
+            boolean isBlocked = s.isBlocked || overlapController.isAppBlocked(s.packageName);
+            muteBtn.setText(isBlocked ? "解除" : "この音を消す");
+            muteBtn.setTextColor(Color.WHITE);
+            muteBtn.setTextSize(12);
+            muteBtn.setAllCaps(false);
+            muteBtn.setBackground(cardBg(isBlocked ? 0xff10b981 : 0xffff4d6d, isBlocked ? 0xff10b981 : 0xffff4d6d, 8));
+            muteBtn.setOnClickListener(v -> {
+                if (isBlocked) {
+                    overlapController.unblockApp(s.packageName);
+                } else {
+                    overlapController.blockApp(s.packageName);
+                }
+                refreshSessionsList();
+            });
+            row.addView(muteBtn, new LinearLayout.LayoutParams(-2, dp(38)));
+
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
+            rowLp.bottomMargin = dp(6);
+            dynamicOverlapContainer.addView(row, rowLp);
+        }
     }
 
     private void buildPermissionCard(LinearLayout root) {
@@ -296,7 +334,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         headRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView head = new TextView(this);
-        head.setText("現在再生中のメディア (YouTube/音楽)");
+        head.setText("現在再生中のアプリ一覧");
         head.setTextColor(Color.WHITE);
         head.setTextSize(15);
         head.setTypeface(null, Typeface.BOLD);
@@ -313,7 +351,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.addView(headRow);
 
         TextView desc = new TextView(this);
-        desc.setText("YouTube、Spotify、ブラウザ等の音声をアプリ単位で停止/ブロックできます。");
+        desc.setText("現在端末内で音声を再生している各アプリを検知し、個別に消音できます。");
         desc.setTextColor(0xff9ca3af);
         desc.setTextSize(12);
         desc.setPadding(0, dp(4), 0, dp(12));
@@ -337,7 +375,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         headRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView head = new TextView(this);
-        head.setText("ゲーム・一般アプリの個別消音 (AppOps)");
+        head.setText("全アプリ一覧から消音アプリを選択 (AppOps)");
         head.setTextColor(Color.WHITE);
         head.setTextSize(15);
         head.setTypeface(null, Typeface.BOLD);
@@ -354,7 +392,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.addView(headRow);
 
         TextView desc = new TextView(this);
-        desc.setText("YouTube等と違い曲情報を持たないゲームアプリも、Androidの音声出力権限(PLAY_AUDIO)を直接制御して音を完全ブロックできます。");
+        desc.setText("端末内の任意のゲーム、SNS、ブラウザ等のアプリを選択し、音声を完全ブロックできます。");
         desc.setTextColor(0xff9ca3af);
         desc.setTextSize(12);
         desc.setPadding(0, dp(4), 0, dp(12));
@@ -364,7 +402,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         installedAppsContainer.setOrientation(LinearLayout.VERTICAL);
 
         TextView placeholder = new TextView(this);
-        placeholder.setText("「アプリ読込 ▼」をタップすると端末内のゲーム・アプリ一覧が表示されます");
+        placeholder.setText("「アプリ読込 ▼」をタップすると端末内の全アプリ一覧が表示されます");
         placeholder.setTextColor(0xff6b7280);
         placeholder.setTextSize(12);
         placeholder.setPadding(0, dp(4), 0, dp(4));
@@ -389,7 +427,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
             List<AppInfo> otherList = new ArrayList<>();
 
             for (ApplicationInfo info : apps) {
-                if ((info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue; // システムアプリは除外
+                if ((info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
                 if (info.packageName.equals(getPackageName())) continue;
 
                 String name = pm.getApplicationLabel(info).toString();
@@ -411,7 +449,6 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                 }
             }
 
-            // ゲームを先頭に表示
             List<AppInfo> finalList = new ArrayList<>();
             finalList.addAll(gameList);
             finalList.addAll(otherList);
@@ -442,7 +479,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                     infoBox.setPadding(dp(10), 0, dp(10), 0);
 
                     TextView nameView = new TextView(this);
-                    nameView.setText((app.isGame ? "🎮 " : "📱 ") + app.appName);
+                    nameView.setText(app.appName);
                     nameView.setTextColor(Color.WHITE);
                     nameView.setTextSize(13);
                     nameView.setTypeface(null, Typeface.BOLD);
@@ -490,7 +527,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         box.setBackground(cardBg(0xff151828, 0xff7c67fe, 18));
 
         TextView h = new TextView(this);
-        h.setText("ゲーム音声を完全ブロック (ADB / Shizuku)");
+        h.setText("アプリ音声を完全ブロック (ADB / Shizuku)");
         h.setTextColor(Color.WHITE);
         h.setTextSize(16);
         h.setTypeface(null, Typeface.BOLD);
@@ -574,7 +611,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         floatTitle.setTextSize(14);
         floatInfo.addView(floatTitle);
         TextView floatDesc = new TextView(this);
-        floatDesc.setText("ゲームや別アプリをプレイ中も画面端から即ブロック");
+        floatDesc.setText("別アプリを操作中も画面端から即座に消音アプリを選択");
         floatDesc.setTextColor(0xff9ca3af);
         floatDesc.setTextSize(11);
         floatInfo.addView(floatDesc);
@@ -615,7 +652,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         focusTitle.setTextSize(14);
         focusInfo.addView(focusTitle);
         TextView focusDesc = new TextView(this);
-        focusDesc.setText("オーディオフォーカスを独占し他アプリの音を停止");
+        focusDesc.setText("オーディオフォーカスを独占し他アプリの音を一斉停止");
         focusDesc.setTextColor(0xff9ca3af);
         focusDesc.setTextSize(11);
         focusInfo.addView(focusDesc);
@@ -677,18 +714,17 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.setPadding(dp(16), dp(16), dp(16), dp(16));
 
         TextView head = new TextView(this);
-        head.setText("ℹ️ Androidの仕様とゲーム・YouTubeの音声重複");
+        head.setText("ℹ️ 音声重複とSoundBlockerの仕組み");
         head.setTextColor(0xff9ca3af);
         head.setTextSize(13);
         head.setTypeface(null, Typeface.BOLD);
         card.addView(head);
 
         TextView exp = new TextView(this);
-        exp.setText("■ 通話とメディアは別だが、ゲームとYouTubeはなぜ重なるのか？\n" +
-                "Androidには「通話音声(VOICE_CALL)」と「メディア音声(MUSIC)」の別々のスライダーがあるため、通話中のゲームはゲーム音だけ下げられます。しかし「ゲーム」と「YouTube」はどちらも同じ【メディア音声】に属しているため、標準の音量ボタンでは両方一緒に上がったり下がったりしてしまいます。\n\n" +
-                "■ SoundBlockerによる解決方法\n" +
-                "1. YouTube側を消したい時：MediaSessionコントローラーでYouTubeの音声をバックグラウンド完全停止！\n" +
-                "2. ゲーム側を消したい時：Android深層のPLAY_AUDIO権限制御(AppOps)やオーディオフォーカスでゲーム音を完全ブロック！");
+        exp.setText("■ なぜ複数のアプリで音が出ると重なってしまうのか？\n" +
+                "Androidでは「通話」と「メディア」は別々の音量スライダーがありますが、ゲーム、動画、音楽、SNS、ブラウザなどはすべて同一の【メディア音声】として出力されるため、OS標準の音量キーでは片方だけを消すことができません。\n\n" +
+                "■ 自由な個別選択ブロック\n" +
+                "本アプリは特定のアプリに依存せず、現在音を出しているアプリを動的にリスト化します。ユーザーが「消したい方のアプリ」を選択するだけで、MediaSession制御またはPLAY_AUDIO制御により、目的のアプリの音だけをピンポイントで消音します。");
         exp.setTextColor(0xff6b7280);
         exp.setTextSize(11);
         exp.setLineSpacing(dp(2), 1.15f);
@@ -735,7 +771,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
-            return "1.1.0";
+            return "1.2.0";
         }
     }
 
@@ -805,12 +841,15 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
             onSessionsChanged(service.getActiveAudioSessions());
         } else {
             showEmptySessions();
+            updateDynamicOverlapSelector(null);
         }
     }
 
     @Override
     public void onSessionsChanged(List<AudioSessionInfo> sessions) {
         runOnUiThread(() -> {
+            updateDynamicOverlapSelector(sessions);
+
             if (activeSessionsContainer == null) return;
             activeSessionsContainer.removeAllViews();
 
@@ -861,7 +900,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                 row.addView(infoBox, new LinearLayout.LayoutParams(0, -2, 1));
 
                 TextView btn = new TextView(this);
-                boolean blocked = info.isBlocked;
+                boolean blocked = info.isBlocked || overlapController.isAppBlocked(info.packageName);
                 btn.setText(blocked ? "ブロック解除" : "音をブロック");
                 btn.setTextSize(12);
                 btn.setTypeface(null, Typeface.BOLD);
@@ -875,14 +914,12 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                 btn.setPadding(dp(12), dp(8), dp(12), dp(8));
 
                 btn.setOnClickListener(v -> {
-                    SoundBlockerNotificationService s = SoundBlockerNotificationService.getInstance();
-                    if (s != null) {
-                        if (blocked) {
-                            s.unblockApp(info.packageName);
-                        } else {
-                            s.blockApp(info.packageName);
-                        }
+                    if (blocked) {
+                        overlapController.unblockApp(info.packageName);
+                    } else {
+                        overlapController.blockApp(info.packageName);
                     }
+                    refreshSessionsList();
                 });
 
                 row.addView(btn, new LinearLayout.LayoutParams(-2, -2));
@@ -904,14 +941,14 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         box.setPadding(0, dp(16), 0, dp(16));
 
         TextView empty = new TextView(this);
-        empty.setText("現在再生中のメディアセッションはありません");
+        empty.setText("現在再生中のオーディオアプリはありません");
         empty.setTextColor(0xff6b7280);
         empty.setTextSize(13);
         empty.setGravity(Gravity.CENTER);
         box.addView(empty);
 
         TextView hint = new TextView(this);
-        hint.setText("YouTube、Spotify、音楽アプリ、ブラウザで動画や音声を再生すると自動で検出されます。");
+        hint.setText("音楽、動画、ゲーム、ブラウザ等で音声を再生すると自動で検出されます。");
         hint.setTextColor(0xff4b5563);
         hint.setTextSize(11);
         hint.setGravity(Gravity.CENTER);

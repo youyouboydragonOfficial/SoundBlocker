@@ -26,6 +26,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
     private WindowManager windowManager;
     private View floatingBubble;
     private View expandedPanel;
+    private LinearLayout dynamicSelectorContainer;
     private LinearLayout panelItemsContainer;
     private WindowManager.LayoutParams bubbleParams;
     private WindowManager.LayoutParams panelParams;
@@ -72,8 +73,8 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
-        return builder.setContentTitle("SoundBlocker 常駐中")
-                .setContentText("ゲームとYouTubeの音声重複をワンタップでブロック")
+        return builder.setContentTitle("SoundBlocker 動作中")
+                .setContentText("画面端から重なっているアプリの音を自由に選択ブロック")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
     }
@@ -164,7 +165,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(18));
-        bg.setColor(0xf2151828);
+        bg.setColor(0xf4151828);
         bg.setStroke(dp(1.5f), 0xff7c67fe);
         panel.setBackground(bg);
 
@@ -174,7 +175,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
         header.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView title = new TextView(this);
-        title.setText("SOUND BLOCKER");
+        title.setText("SOUND BLOCKER  /  選択消音");
         title.setTextColor(0xff7c67fe);
         title.setTextSize(13);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -190,82 +191,39 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
 
         panel.addView(header, new LinearLayout.LayoutParams(-1, -2));
 
-        // Quick Mode Switch: Game vs YouTube (重なり解消スイッチ)
-        TextView modeTitle = new TextView(this);
-        modeTitle.setText("音声の重なりワンタップ解決:");
-        modeTitle.setTextColor(0xff9ca3af);
-        modeTitle.setTextSize(11);
-        modeTitle.setPadding(0, dp(10), 0, dp(6));
-        panel.addView(modeTitle);
+        // 1. Dynamic Selector: 現在重なっているアプリから片方を選択してブロックする動的ボタン領域
+        dynamicSelectorContainer = new LinearLayout(this);
+        dynamicSelectorContainer.setOrientation(LinearLayout.VERTICAL);
+        dynamicSelectorContainer.setPadding(0, dp(8), 0, dp(4));
+        panel.addView(dynamicSelectorContainer, new LinearLayout.LayoutParams(-1, -2));
 
-        LinearLayout modeRow = new LinearLayout(this);
-        modeRow.setOrientation(LinearLayout.HORIZONTAL);
+        // 2. Individual App List
+        panelItemsContainer = new LinearLayout(this);
+        panelItemsContainer.setOrientation(LinearLayout.VERTICAL);
+        panel.addView(panelItemsContainer, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView btnGameOnly = new TextView(this);
-        btnGameOnly.setText("🎬 YouTubeを消す\n(ゲーム音のみ)");
-        btnGameOnly.setTextColor(Color.WHITE);
-        btnGameOnly.setTextSize(11);
-        btnGameOnly.setGravity(Gravity.CENTER);
-        btnGameOnly.setBackground(btnBg(0xff2d2558, 8));
-        btnGameOnly.setPadding(dp(6), dp(8), dp(6), dp(8));
-        btnGameOnly.setOnClickListener(v -> {
-            overlapController.muteMediaOnly();
-            refreshPanelItems();
-        });
-        modeRow.addView(btnGameOnly, new LinearLayout.LayoutParams(0, -2, 1));
-
-        View space = new View(this);
-        modeRow.addView(space, new LinearLayout.LayoutParams(dp(6), -1));
-
-        TextView btnMediaOnly = new TextView(this);
-        btnMediaOnly.setText("🎮 ゲームを消す\n(YouTubeのみ)");
-        btnMediaOnly.setTextColor(Color.WHITE);
-        btnMediaOnly.setTextSize(11);
-        btnMediaOnly.setGravity(Gravity.CENTER);
-        btnMediaOnly.setBackground(btnBg(0xff551f38, 8));
-        btnMediaOnly.setPadding(dp(6), dp(8), dp(6), dp(8));
-        btnMediaOnly.setOnClickListener(v -> {
-            overlapController.muteGameOnly();
-            refreshPanelItems();
-        });
-        modeRow.addView(btnMediaOnly, new LinearLayout.LayoutParams(0, -2, 1));
-
-        panel.addView(modeRow, new LinearLayout.LayoutParams(-1, -2));
-
+        // Unblock All Button
         TextView btnUnmuteAll = new TextView(this);
-        btnUnmuteAll.setText("🔄 両方の音を鳴らす (ブロック全解除)");
+        btnUnmuteAll.setText("🔄 すべての音を鳴らす (ブロック全解除)");
         btnUnmuteAll.setTextColor(0xff10b981);
         btnUnmuteAll.setTextSize(11);
         btnUnmuteAll.setGravity(Gravity.CENTER);
         btnUnmuteAll.setBackground(btnBg(0xff162822, 6));
-        btnUnmuteAll.setPadding(0, dp(6), 0, dp(6));
+        btnUnmuteAll.setPadding(0, dp(8), 0, dp(8));
         btnUnmuteAll.setOnClickListener(v -> {
-            overlapController.unmuteAll();
+            overlapController.unblockAll();
             refreshPanelItems();
         });
         LinearLayout.LayoutParams unmuteLp = new LinearLayout.LayoutParams(-1, -2);
-        unmuteLp.topMargin = dp(6);
+        unmuteLp.topMargin = dp(8);
         panel.addView(btnUnmuteAll, unmuteLp);
-
-        // Divider
-        View div = new View(this);
-        div.setBackgroundColor(0xff282c48);
-        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(-1, dp(1));
-        divLp.topMargin = dp(10);
-        divLp.bottomMargin = dp(4);
-        panel.addView(div, divLp);
-
-        // Media Sessions list
-        panelItemsContainer = new LinearLayout(this);
-        panelItemsContainer.setOrientation(LinearLayout.VERTICAL);
-        panel.addView(panelItemsContainer, new LinearLayout.LayoutParams(-1, -2));
 
         int layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 : WindowManager.LayoutParams.TYPE_PHONE;
 
         panelParams = new WindowManager.LayoutParams(
-                dp(290),
+                dp(300),
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 layoutType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
@@ -300,19 +258,55 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
     }
 
     private void refreshPanelItems() {
-        if (panelItemsContainer == null) return;
+        if (panelItemsContainer == null || dynamicSelectorContainer == null) return;
         panelItemsContainer.removeAllViews();
+        dynamicSelectorContainer.removeAllViews();
 
         SoundBlockerNotificationService service = SoundBlockerNotificationService.getInstance();
         List<AudioSessionInfo> sessions = service != null ? service.getActiveAudioSessions() : null;
 
+        // 1. 動的選択ボタン群の生成 (複数アプリ検出時)
+        if (sessions != null && sessions.size() >= 2) {
+            TextView prompt = new TextView(this);
+            prompt.setText("複数のアプリで音が鳴っています。消したいアプリを選択:");
+            prompt.setTextColor(0xffc4b5fd);
+            prompt.setTextSize(11);
+            prompt.setPadding(0, 0, 0, dp(6));
+            dynamicSelectorContainer.addView(prompt);
+
+            for (AudioSessionInfo s : sessions) {
+                TextView selectBtn = new TextView(this);
+                selectBtn.setText("🚫 「" + s.appName + "」の音を消す");
+                selectBtn.setTextColor(Color.WHITE);
+                selectBtn.setTextSize(12);
+                selectBtn.setGravity(Gravity.CENTER);
+                selectBtn.setBackground(btnBg(0xff432658, 8));
+                selectBtn.setPadding(dp(8), dp(7), dp(8), dp(7));
+                selectBtn.setOnClickListener(v -> {
+                    overlapController.blockApp(s.packageName);
+                    refreshPanelItems();
+                });
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+                lp.bottomMargin = dp(4);
+                dynamicSelectorContainer.addView(selectBtn, lp);
+            }
+
+            View div = new View(this);
+            div.setBackgroundColor(0xff282c48);
+            LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(-1, dp(1));
+            divLp.topMargin = dp(4);
+            divLp.bottomMargin = dp(8);
+            dynamicSelectorContainer.addView(div, divLp);
+        }
+
+        // 2. アプリ個別リストの生成
         if (sessions == null || sessions.isEmpty()) {
             TextView emptyText = new TextView(this);
-            emptyText.setText("現在再生中のメディアセッションはありません");
+            emptyText.setText("現在再生中のオーディオアプリはありません\n(アプリで音が出るとここに自動表示され、個別に消音できます)");
             emptyText.setTextColor(0xff6b7280);
             emptyText.setTextSize(11);
             emptyText.setGravity(Gravity.CENTER);
-            emptyText.setPadding(0, dp(10), 0, dp(6));
+            emptyText.setPadding(0, dp(12), 0, dp(8));
             panelItemsContainer.addView(emptyText, new LinearLayout.LayoutParams(-1, -2));
             return;
         }
@@ -329,7 +323,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             } else {
                 icon.setImageResource(R.drawable.ic_launcher_foreground);
             }
-            row.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+            row.addView(icon, new LinearLayout.LayoutParams(dp(30), dp(30)));
 
             LinearLayout infoBox = new LinearLayout(this);
             infoBox.setOrientation(LinearLayout.VERTICAL);
@@ -352,7 +346,7 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             row.addView(infoBox, new LinearLayout.LayoutParams(0, -2, 1));
 
             TextView actionBtn = new TextView(this);
-            boolean blocked = info.isBlocked;
+            boolean blocked = info.isBlocked || overlapController.isAppBlocked(info.packageName);
             actionBtn.setText(blocked ? "解除" : "ブロック");
             actionBtn.setTextSize(11);
             actionBtn.setTextColor(Color.WHITE);
@@ -361,14 +355,12 @@ public class SoundBlockerFloatingService extends Service implements SoundBlocker
             actionBtn.setPadding(dp(8), dp(4), dp(8), dp(4));
 
             actionBtn.setOnClickListener(v -> {
-                if (service != null) {
-                    if (blocked) {
-                        service.unblockApp(info.packageName);
-                    } else {
-                        service.blockApp(info.packageName);
-                    }
-                    refreshPanelItems();
+                if (blocked) {
+                    overlapController.unblockApp(info.packageName);
+                } else {
+                    overlapController.blockApp(info.packageName);
                 }
+                refreshPanelItems();
             });
 
             row.addView(actionBtn, new LinearLayout.LayoutParams(-2, -2));
