@@ -103,7 +103,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
         // 1. Header
         TextView tag = new TextView(this);
-        tag.setText("PURE AUDIO MUTING & BLOCKER  v1.3.0");
+        tag.setText("PER-APP AUDIO ISOLATION  v1.4.0");
         tag.setTextSize(11);
         tag.setTextColor(0xff7c67fe);
         tag.setLetterSpacing(0.12f);
@@ -119,14 +119,14 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("再生は止めずに、音（音声出力）だけを個別に完全消音・ブロック");
+        subtitle.setText("端末全体の音量は維持したまま、目的のアプリの音だけを個別遮断");
         subtitle.setTextSize(13);
         subtitle.setTextColor(0xff9ca3af);
         root.addView(subtitle, new LinearLayout.LayoutParams(-1, -2));
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(20)));
 
-        // 2. Dynamic Audio Overlap Selector (消音選択)
+        // 2. Dynamic Audio Overlap Selector (アプリ単体消音)
         buildDynamicOverlapCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
@@ -136,12 +136,12 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
 
-        // 4. Currently Playing Apps (個別消音リスト)
+        // 4. Currently Playing Apps
         buildActiveStreamsCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
 
-        // 5. Installed All Apps Audio Blocker (全アプリから消音選択)
+        // 5. Installed All Apps Audio Blocker (全アプリから単体消音選択)
         buildInstalledAppsCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
@@ -151,7 +151,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
 
-        // 7. System Limitation Explanation Card
+        // 7. System Limitation Explanation Card (アプリ単体消音の仕組み解説)
         buildExplanationCard(root);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(16)));
@@ -162,7 +162,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         root.addView(new View(this), new LinearLayout.LayoutParams(-1, dp(24)));
 
         TextView footer = new TextView(this);
-        footer.setText("© 2026 youyouboydragonOfficial  •  SoundBlocker v1.3.0");
+        footer.setText("© 2026 youyouboydragonOfficial  •  SoundBlocker v1.4.0");
         footer.setTextSize(11);
         footer.setTextColor(0xff4b5563);
         footer.setGravity(Gravity.CENTER);
@@ -179,14 +179,14 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
 
         TextView badge = new TextView(this);
-        badge.setText("⚡ 複数アプリの音声消音セレクター");
+        badge.setText("⚡ アプリ単体の個別消音セレクター");
         badge.setTextColor(0xffa78bfa);
         badge.setTextSize(12);
         badge.setTypeface(null, Typeface.BOLD);
         card.addView(badge);
 
         TextView h = new TextView(this);
-        h.setText("消音したいアプリを選択 (再生は継続)");
+        h.setText("消音したいアプリを選択 (端末音量は維持)");
         h.setTextColor(Color.WHITE);
         h.setTextSize(17);
         h.setTypeface(null, Typeface.BOLD);
@@ -194,7 +194,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.addView(h);
 
         TextView desc = new TextView(this);
-        desc.setText("音楽や動画を一時停止(Pause)させることなく、バックグラウンド再生を維持したまま「音だけ」を完全無音化（消音）します。");
+        desc.setText("端末全体のメディア音量を下げるのではなく、選んだアプリの音声出力のみをOSレベルで遮断(AppOps)します。もう片方のアプリの音はそのまま鳴り続けます。");
         desc.setTextColor(0xffc4b5fd);
         desc.setTextSize(12);
         desc.setLineSpacing(dp(2), 1.15f);
@@ -240,7 +240,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         }
 
         TextView prompt = new TextView(this);
-        prompt.setText("複数のアプリで音が鳴っています。音を消すアプリをタップ:");
+        prompt.setText("複数のアプリで音が鳴っています。消音するアプリをタップ:");
         prompt.setTextColor(Color.WHITE);
         prompt.setTextSize(13);
         prompt.setTypeface(null, Typeface.BOLD);
@@ -276,7 +276,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
             TextView status = new TextView(this);
             boolean isBlocked = s.isBlocked || overlapController.isAppBlocked(s.packageName);
-            status.setText(isBlocked ? "🔇 音声消音中 (再生中)" : "▶ 再生中");
+            status.setText(isBlocked ? "🔇 単体消音中 (端末音量は維持)" : "▶ 再生中");
             status.setTextColor(isBlocked ? 0xffff4d6d : 0xff9ca3af);
             status.setTextSize(10);
             infoBox.addView(status);
@@ -284,16 +284,19 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
             row.addView(infoBox, new LinearLayout.LayoutParams(0, -2, 1));
 
             Button muteBtn = new Button(this);
-            muteBtn.setText(isBlocked ? "消音解除" : "音だけ消音");
+            muteBtn.setText(isBlocked ? "解除" : "単体消音");
             muteBtn.setTextColor(Color.WHITE);
             muteBtn.setTextSize(12);
             muteBtn.setAllCaps(false);
             muteBtn.setBackground(cardBg(isBlocked ? 0xff10b981 : 0xffff4d6d, isBlocked ? 0xff10b981 : 0xffff4d6d, 8));
             muteBtn.setOnClickListener(v -> {
                 if (isBlocked) {
-                    overlapController.unmuteAppSound(s.packageName);
+                    overlapController.unmuteAppSoundOnly(s.packageName);
                 } else {
-                    overlapController.muteAppSound(s.packageName);
+                    boolean success = overlapController.muteAppSoundOnly(s.packageName);
+                    if (!success) {
+                        showAdbCommandDialog(s.appName, appOpsBlocker.getAdbCommand(s.packageName, true));
+                    }
                 }
                 refreshSessionsList();
             });
@@ -346,7 +349,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         headRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView head = new TextView(this);
-        head.setText("現在再生中のアプリ (個別消音)");
+        head.setText("現在再生中のアプリ一覧");
         head.setTextColor(Color.WHITE);
         head.setTextSize(15);
         head.setTypeface(null, Typeface.BOLD);
@@ -363,7 +366,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.addView(headRow);
 
         TextView desc = new TextView(this);
-        desc.setText("再生は止めずに、アプリの音量のみを0（完全消音）にします。");
+        desc.setText("端末全体のメディア音量はそのままに、アプリ単体の音だけを消音します。");
         desc.setTextColor(0xff9ca3af);
         desc.setTextSize(12);
         desc.setPadding(0, dp(4), 0, dp(12));
@@ -387,7 +390,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         headRow.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView head = new TextView(this);
-        head.setText("全アプリ一覧から消音アプリを選択 (AppOps)");
+        head.setText("全アプリ一覧から単体消音 (AppOps / PLAY_AUDIO)");
         head.setTextColor(Color.WHITE);
         head.setTextSize(15);
         head.setTypeface(null, Typeface.BOLD);
@@ -404,7 +407,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.addView(headRow);
 
         TextView desc = new TextView(this);
-        desc.setText("端末内の任意のゲーム、SNS、ブラウザ等のアプリを選択し、音声を完全ブロックできます。");
+        desc.setText("Android OSの音声出力権限(PLAY_AUDIO)を直接切り替え、特定アプリの音だけを遮断します。");
         desc.setTextColor(0xff9ca3af);
         desc.setTextSize(12);
         desc.setPadding(0, dp(4), 0, dp(12));
@@ -499,7 +502,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                     infoBox.addView(nameView);
 
                     TextView pkgView = new TextView(this);
-                    pkgView.setText(app.isAudioBlocked ? "🔇 音声消音中 (再生継続)" : (app.isGame ? "ゲームアプリ" : app.packageName));
+                    pkgView.setText(app.isAudioBlocked ? "🔇 単体消音中 (端末音量はそのまま)" : (app.isGame ? "ゲームアプリ" : app.packageName));
                     pkgView.setTextColor(app.isAudioBlocked ? 0xffff4d6d : 0xff9ca3af);
                     pkgView.setTextSize(11);
                     pkgView.setSingleLine(true);
@@ -512,7 +515,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                     blockSwitch.setOnCheckedChangeListener((btn, isChecked) -> {
                         boolean applied = appOpsBlocker.setAppAudioBlocked(app.packageName, isChecked);
                         app.isAudioBlocked = isChecked;
-                        pkgView.setText(isChecked ? "🔇 音声消音中 (再生継続)" : (app.isGame ? "ゲームアプリ" : app.packageName));
+                        pkgView.setText(isChecked ? "🔇 単体消音中 (端末音量はそのまま)" : (app.isGame ? "ゲームアプリ" : app.packageName));
                         pkgView.setTextColor(isChecked ? 0xffff4d6d : 0xff9ca3af);
 
                         if (!applied && isChecked) {
@@ -539,14 +542,14 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         box.setBackground(cardBg(0xff151828, 0xff7c67fe, 18));
 
         TextView h = new TextView(this);
-        h.setText("アプリ音声を完全消音 (ADB / Shizuku)");
+        h.setText("「" + appName + "」だけを消音 (ADB / Shizuku)");
         h.setTextColor(Color.WHITE);
         h.setTextSize(16);
         h.setTypeface(null, Typeface.BOLD);
         box.addView(h);
 
         TextView body = new TextView(this);
-        body.setText("「" + appName + "」の再生を止めずに音だけを消音するためのADBコマンドです。\n（ShizukuまたはPCのADB/LADBで実行すると、root化なしで音声を完全遮断できます）");
+        body.setText("端末全体の音量は一切下げずに、「" + appName + "」の音だけをOSレベルで完全消音するためのコマンドです。\n（ShizukuアプリまたはPCのADBで実行すると、root不要で単体消音できます）");
         body.setTextColor(0xff9ca3af);
         body.setTextSize(12);
         body.setPadding(0, dp(8), 0, dp(12));
@@ -723,17 +726,17 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         card.setPadding(dp(16), dp(16), dp(16), dp(16));
 
         TextView head = new TextView(this);
-        head.setText("ℹ️ 「再生停止」ではなく「純粋な音ブロック（消音）」");
+        head.setText("ℹ️ 「端末音量0」ではなく「アプリ単体消音」の真実");
         head.setTextColor(0xff9ca3af);
         head.setTextSize(13);
         head.setTypeface(null, Typeface.BOLD);
         card.addView(head);
 
         TextView exp = new TextView(this);
-        exp.setText("■ 再生停止(Pause)との違い\n" +
-                "一般的なメディア制御ではアプリ自体が「一時停止」してしまいますが、SoundBlockerは【アプリの再生はバックグラウンドで走らせたまま、音声出力のみをOSレベルで完全ブロック(ミュート)】します。\n\n" +
-                "■ 仕組み\n" +
-                "MediaControllerの直接ミュートコマンドおよびAndroid OSの深層音声権限(OP_PLAY_AUDIO)を連携させ、曲や動画を止めずにスピーカーへの音だけを遮断します。");
+        exp.setText("■ なぜ端末音量を0にしてはいけないのか？\n" +
+                "端末全体のメディア音量(STREAM_MUSIC)を0にしてしまうと、聴きたかったもう片方のアプリの音まで消えてしまいます。\n\n" +
+                "■ アプリ単体だけを消音できる唯一の仕組み(AppOps)\n" +
+                "Android OS内部には「OP_PLAY_AUDIO」という音声権限が存在します。これをignoreに設定すると、端末全体の音量は100%維持されたまま、対象アプリの音声出力だけがOSによって破棄され、完全無音化されます（Shizukuアプリ等でワンタップ反映可能）。");
         exp.setTextColor(0xff6b7280);
         exp.setTextSize(11);
         exp.setLineSpacing(dp(2), 1.15f);
@@ -780,7 +783,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
-            return "1.3.0";
+            return "1.4.0";
         }
     }
 
@@ -896,7 +899,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
                 TextView track = new TextView(this);
                 boolean blocked = info.isBlocked || overlapController.isAppBlocked(info.packageName);
-                String stateText = blocked ? "🔇 音声消音中 (再生中)" : (info.isPlaying ? "▶ 再生中" : "⏸ 一時停止中");
+                String stateText = blocked ? "🔇 単体消音中 (端末音量は維持)" : (info.isPlaying ? "▶ 再生中" : "⏸ 停止中");
                 if (!info.title.isEmpty()) {
                     track.setText(stateText + " • " + info.title);
                 } else {
@@ -910,7 +913,7 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                 row.addView(infoBox, new LinearLayout.LayoutParams(0, -2, 1));
 
                 Button btn = new Button(this);
-                btn.setText(blocked ? "消音解除" : "音だけ消音");
+                btn.setText(blocked ? "解除" : "単体消音");
                 btn.setTextSize(12);
                 btn.setTypeface(null, Typeface.BOLD);
                 btn.setTextColor(Color.WHITE);
@@ -919,9 +922,12 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
 
                 btn.setOnClickListener(v -> {
                     if (blocked) {
-                        overlapController.unmuteAppSound(info.packageName);
+                        overlapController.unmuteAppSoundOnly(info.packageName);
                     } else {
-                        overlapController.muteAppSound(info.packageName);
+                        boolean ok = overlapController.muteAppSoundOnly(info.packageName);
+                        if (!ok) {
+                            showAdbCommandDialog(info.appName, appOpsBlocker.getAdbCommand(info.packageName, true));
+                        }
                     }
                     refreshSessionsList();
                 });
@@ -1015,7 +1021,6 @@ public class MainActivity extends Activity implements SoundBlockerNotificationSe
                 final String finalTag = tag;
                 final String finalBody = body;
 
-                // 必ず3秒以上読み込むこと（早すぎるとおかしく思われる）
                 waitForLoading(started, 3200);
 
                 runOnUiThread(() -> {
